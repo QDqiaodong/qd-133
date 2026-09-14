@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { ElTable, ElTableColumn, ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElMessage, ElTag, ElMessageBox } from 'element-plus'
-import { stationApi, equipmentApi, riderApi, type TrainingStation, type ObstacleEquipment, type Rider } from '@/api'
+import { stationApi, equipmentApi, riderApi, type TrainingStation, type TrainingStationSummary, type ObstacleEquipment, type Rider } from '@/api'
 
 const stationList = ref<TrainingStation[]>([])
 const equipmentList = ref<ObstacleEquipment[]>([])
 const riderList = ref<Rider[]>([])
+const summary = ref<TrainingStationSummary>({ total: 0, occupied: 0, free: 0 })
 const dialogVisible = ref(false)
 const bindDialogVisible = ref(false)
 const form = ref({
@@ -102,6 +103,7 @@ onMounted(() => {
 const loadData = async () => {
   try {
     stationList.value = await stationApi.listAll() as unknown as TrainingStation[]
+    summary.value = await stationApi.summary() as unknown as TrainingStationSummary
     equipmentList.value = await equipmentApi.listAll() as unknown as ObstacleEquipment[]
     riderList.value = await riderApi.listAll() as unknown as Rider[]
   } catch (error: any) {
@@ -202,6 +204,26 @@ const handleBind = async () => {
   }
 }
 
+const handleUnbindRider = async (row: TrainingStation) => {
+  if (!row.rider) return
+  try {
+    await ElMessageBox.confirm(
+      `确定从训练位[${row.stationName}]拿下骑手[${row.rider.riderName}]吗？拿下后该位改标空闲。`,
+      '拿下骑手',
+      { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+  try {
+    await stationApi.unbindRider(row.id)
+    ElMessage.success('已拿下骑手，该训练位改标空闲')
+    loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '操作失败')
+  }
+}
+
 const handleDelete = async (id: number) => {
   try {
     await stationApi.delete(id)
@@ -215,7 +237,12 @@ const handleDelete = async (id: number) => {
 
 <template>
   <div class="station-page">
-    <div style="margin-bottom: 20px; display: flex; justify-content: flex-end;">
+    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <ElTag type="info" effect="plain" style="margin-right: 10px;">训练位总数：{{ summary.total }}</ElTag>
+        <ElTag type="danger" effect="plain" style="margin-right: 10px;">占用：{{ summary.occupied }}</ElTag>
+        <ElTag type="success" effect="plain">空闲：{{ summary.free }}</ElTag>
+      </div>
       <ElButton type="primary" @click="openAddDialog">添加训练位</ElButton>
     </div>
     <ElTable :data="stationList" border>
@@ -252,16 +279,17 @@ const handleDelete = async (id: number) => {
           <span v-if="!row.equipment" style="color: #909399;">-</span>
         </template>
       </ElTableColumn>
-      <ElTableColumn label="状态">
+      <ElTableColumn label="状态" width="90" align="center">
         <template #default="{ row }">
-          <span v-if="row.rider && row.equipment" style="color: #67c23a;">已绑定</span>
-          <span v-else style="color: #e6a23c;">待绑定</span>
+          <ElTag v-if="row.occupied" type="danger">占用</ElTag>
+          <ElTag v-else type="success">空闲</ElTag>
         </template>
       </ElTableColumn>
-      <ElTableColumn label="操作">
+      <ElTableColumn label="操作" width="320">
         <template #default="{ row }">
           <ElButton type="primary" size="small" @click="openEditDialog(row as unknown as TrainingStation)">编辑</ElButton>
           <ElButton type="success" size="small" @click="openBindDialog(row as unknown as TrainingStation)">绑定</ElButton>
+          <ElButton type="warning" size="small" :disabled="!row.occupied" @click="handleUnbindRider(row as unknown as TrainingStation)">拿下骑手</ElButton>
           <ElButton type="danger" size="small" @click="handleDelete(row.id)">删除</ElButton>
         </template>
       </ElTableColumn>

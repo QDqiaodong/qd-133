@@ -58,6 +58,15 @@ export interface TrainingStation {
   rider: Rider | null
   equipment: ObstacleEquipment | null
   status: number
+  occupied: boolean
+  occupancyStatus: 'OCCUPIED' | 'FREE'
+  occupancyStatusName: string
+}
+
+export interface TrainingStationSummary {
+  total: number
+  occupied: number
+  free: number
 }
 
 export interface LevelChangeLog {
@@ -138,10 +147,10 @@ export const riderApi = {
 }
 
 export const stationApi = {
-  create(data: Omit<TrainingStation, 'id' | 'rider' | 'equipment' | 'status'> & { riderId?: number; equipmentId?: number }) {
+  create(data: Omit<TrainingStation, 'id' | 'rider' | 'equipment' | 'status' | 'occupied' | 'occupancyStatus' | 'occupancyStatusName'> & { riderId?: number; equipmentId?: number }) {
     return request.post('/station', data)
   },
-  update(id: number, data: Omit<TrainingStation, 'id' | 'rider' | 'equipment' | 'status'> & { riderId?: number; equipmentId?: number }) {
+  update(id: number, data: Omit<TrainingStation, 'id' | 'rider' | 'equipment' | 'status' | 'occupied' | 'occupancyStatus' | 'occupancyStatusName'> & { riderId?: number; equipmentId?: number }) {
     return request.put(`/station/${id}`, data)
   },
   delete(id: number) {
@@ -152,6 +161,12 @@ export const stationApi = {
   },
   listAll() {
     return request.get('/station')
+  },
+  summary() {
+    return request.get('/station/summary')
+  },
+  unbindRider(id: number) {
+    return request.post(`/station/${id}/unbind-rider`)
   },
   listByRider(riderId: number) {
     return request.get(`/station/rider/${riderId}`)

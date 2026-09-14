@@ -3,6 +3,7 @@ package com.qd.mashu.controller;
 import com.qd.mashu.dto.request.TrainingStationRequest;
 import com.qd.mashu.dto.response.ApiResponse;
 import com.qd.mashu.dto.response.TrainingStationResponse;
+import com.qd.mashu.dto.response.TrainingStationSummary;
 import com.qd.mashu.service.TrainingStationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -44,6 +45,18 @@ public class TrainingStationController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<TrainingStationResponse>>> listAll() {
         List<TrainingStationResponse> response = stationService.listAll();
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<ApiResponse<TrainingStationSummary>> summary() {
+        TrainingStationSummary response = stationService.getSummary();
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/{id}/unbind-rider")
+    public ResponseEntity<ApiResponse<TrainingStationResponse>> unbindRider(@PathVariable Long id) {
+        TrainingStationResponse response = stationService.unbindRider(id);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

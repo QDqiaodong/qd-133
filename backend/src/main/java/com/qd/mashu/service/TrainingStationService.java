@@ -2,6 +2,7 @@ package com.qd.mashu.service;
 
 import com.qd.mashu.dto.request.TrainingStationRequest;
 import com.qd.mashu.dto.response.TrainingStationResponse;
+import com.qd.mashu.dto.response.TrainingStationSummary;
 import com.qd.mashu.entity.ObstacleEquipment;
 import com.qd.mashu.entity.Rider;
 import com.qd.mashu.entity.TrainingStation;
@@ -135,6 +136,40 @@ public class TrainingStationService {
         return stationRepository.findByStatus(1).stream()
                 .map(TrainingStationResponse::fromEntity)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 训练位占用统计：挂上骑手的计占用，没挂人的计空闲，占用 + 空闲 = 训练位总数。
+     */
+    public TrainingStationSummary getSummary() {
+        List<TrainingStation> stations = stationRepository.findByStatus(1);
+        long total = stations.size();
+        long occupied = stations.stream().filter(s -> s.getRider() != null).count();
+        return TrainingStationSummary.builder()
+                .total(total)
+                .occupied(occupied)
+                .free(total - occupied)
+                .build();
+    }
+
+    /**
+     * 从训练位拿下骑手：骑手离场后该位改标空闲（杆仍留在训练位上）。
+     */
+    @Transactional
+    public TrainingStationResponse unbindRider(Long stationId) {
+        TrainingStation station = stationRepository.findById(stationId)
+                .orElseThrow(() -> new IllegalArgumentException("训练位不存在"));
+
+        if (station.getRider() == null) {
+            throw new IllegalArgumentException("该训练位当前空闲，未挂骑手");
+        }
+
+        String riderCode = station.getRider().getRiderCode();
+        station.setRider(null);
+        station = stationRepository.save(station);
+        logger.info("Unbound rider[{}] from station[{}], station is now FREE", riderCode, station.getStationCode());
+
+        return TrainingStationResponse.fromEntity(station);
     }
 
     public List<TrainingStationResponse> listByRider(Long riderId) {

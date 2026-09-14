@@ -48,3 +48,12 @@ Docker Compose 端口均绑定到 `127.0.0.1`，镜像基础地址通过 `.env` 
 - `GET /api/recheck?rechecked=true|false` 复核列表（可按是否已复核筛选）
 - `POST /api/recheck/{equipmentId}` 提交复核（`{ "measuredHeight": 41.0, "reviewer": "陈教练" }`）
 
+## 训练位占用
+
+「训练位一览」按是否挂上骑手标记状态：已挂骑手的位标**占用**，没挂人的标**空闲**；页首统计占用数与空闲数，两数相加等于训练位总数（统计由后端 `GET /api/station/summary` 统一计算）。从某个位「拿下骑手」后（`POST /api/station/{id}/unbind-rider`，杆仍留在位上），该位立即改标空闲，统计同步更新。
+
+接口：
+
+- `GET /api/station/summary` 训练位占用统计（`{ "total": 5, "occupied": 3, "free": 2 }`）
+- `POST /api/station/{id}/unbind-rider` 从训练位拿下骑手，该位改标空闲
+
