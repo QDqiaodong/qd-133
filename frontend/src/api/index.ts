@@ -61,6 +61,8 @@ export interface TrainingStation {
   occupied: boolean
   occupancyStatus: 'OCCUPIED' | 'FREE'
   occupancyStatusName: string
+  levelMatch?: boolean | null
+  levelMatchName?: string | null
 }
 
 export interface TrainingStationSummary {

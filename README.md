@@ -57,3 +57,14 @@ Docker Compose 端口均绑定到 `127.0.0.1`，镜像基础地址通过 `.env` 
 - `GET /api/station/summary` 训练位占用统计（`{ "total": 5, "occupied": 3, "free": 2 }`）
 - `POST /api/station/{id}/unbind-rider` 从训练位拿下骑手，该位改标空闲
 
+## 骑手改级
+
+教练在骑手档案「升级」时须填**改级原因**与**操作人**，少写一样前后端都会提示还没写全，不予提交。改级是幂等的：同一骑手同一新等级只生效一次——网络卡顿连点/重试时，改级全程锁住骑手档案行（`SELECT ... FOR UPDATE`），第二单排队读到新等级后直接返回当前状态，不会再记一条变更；`level_change_log` 另有 `(rider_id, new_level)` 唯一约束兜底（等级只升不降，同骑手同新等级本就只应出现一次）。
+
+改级生效后，训练位上杆的适配等级若已高于骑手新等级，该骑手-杆组合在「训练位一览」的**等级适配**列标为**等级不符**（适配则标「适配」，缺骑手或缺杆显示「-」）；该标记由后端按骑手当前等级与杆适配等级实时推导（`TrainingStationResponse.levelMatch`），改级、换杆后刷新即准。
+
+接口：
+
+- `POST /api/rider/level/update` 改级（`{ "riderId": 1, "newLevel": 2, "changeReason": "考核通过", "operator": "陈教练" }`，幂等）
+- `GET /api/rider/{id}/logs` 骑手等级变更记录
+

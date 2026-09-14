@@ -272,6 +272,13 @@ const handleDelete = async (id: number) => {
           <span v-else style="color: #909399;">-</span>
         </template>
       </ElTableColumn>
+      <ElTableColumn label="等级适配" width="100" align="center">
+        <template #default="{ row }">
+          <ElTag v-if="row.levelMatch === true" type="success">适配</ElTag>
+          <ElTag v-else-if="row.levelMatch === false" type="danger">等级不符</ElTag>
+          <span v-else style="color: #909399;">-</span>
+        </template>
+      </ElTableColumn>
       <ElTableColumn label="杆高复核" width="100" align="center">
         <template #default="{ row }">
           <ElTag v-if="row.equipment && row.equipment.recheckResult === 'MATCH'" type="success">高度相符</ElTag>

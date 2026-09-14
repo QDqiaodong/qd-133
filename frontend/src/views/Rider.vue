@@ -22,6 +22,7 @@ const levelForm = ref({
 const editMode = ref(false)
 const editingId = ref(0)
 const currentRider = ref<Rider | null>(null)
+const levelSubmitting = ref(false)
 
 const levelOptions = [
   { label: '初级 (1)', value: 1 },
@@ -110,20 +111,30 @@ const handleSubmit = async () => {
 }
 
 const handleLevelUpdate = async () => {
-  if (!currentRider.value) return
-  
+  if (!currentRider.value || levelSubmitting.value) return
+
+  // 改级原因、操作人必填，少写一样就提示还没写全
+  if (!levelForm.value.changeReason.trim() || !levelForm.value.operator.trim()) {
+    ElMessage.warning('改级原因和操作人还没写全，请补充完整')
+    return
+  }
+
+  // 提交期间禁用按钮，网络卡顿连点也只发一单（后端对同骑手同新等级幂等，重复单不会再记一条）
+  levelSubmitting.value = true
   try {
     await riderApi.updateLevel({
       riderId: currentRider.value.id,
       newLevel: levelForm.value.newLevel,
-      changeReason: levelForm.value.changeReason,
-      operator: levelForm.value.operator
+      changeReason: levelForm.value.changeReason.trim(),
+      operator: levelForm.value.operator.trim()
     })
     ElMessage.success('等级更新成功')
     levelDialogVisible.value = false
     loadRiders()
   } catch (error: any) {
     ElMessage.error(error.message || '等级更新失败')
+  } finally {
+    levelSubmitting.value = false
   }
 }
 
@@ -210,16 +221,16 @@ const handleDelete = async (id: number) => {
             />
           </ElSelect>
         </ElFormItem>
-        <ElFormItem label="升级原因" prop="changeReason">
-          <ElInput v-model="levelForm.changeReason" type="textarea" placeholder="请输入升级原因" />
+        <ElFormItem label="升级原因" prop="changeReason" required>
+          <ElInput v-model="levelForm.changeReason" type="textarea" placeholder="请输入升级原因（必填）" />
         </ElFormItem>
-        <ElFormItem label="操作人" prop="operator">
-          <ElInput v-model="levelForm.operator" placeholder="请输入操作人姓名" />
+        <ElFormItem label="操作人" prop="operator" required>
+          <ElInput v-model="levelForm.operator" placeholder="请输入操作人姓名（必填）" />
         </ElFormItem>
       </ElForm>
       <template #footer>
         <ElButton @click="levelDialogVisible = false">取消</ElButton>
-        <ElButton type="primary" @click="handleLevelUpdate">确定升级</ElButton>
+        <ElButton type="primary" :loading="levelSubmitting" :disabled="levelSubmitting" @click="handleLevelUpdate">确定升级</ElButton>
       </template>
     </ElDialog>
   </div>

@@ -212,6 +212,10 @@ public class TrainingStationService {
         return TrainingStationResponse.fromEntity(station);
     }
 
+    /**
+     * 骑手改级后复核其在位训练位：杆的适配等级若已高于骑手新等级，
+     * 该骑手-杆组合在训练位列表中标为「等级不符」（由 TrainingStationResponse 按当前等级实时推导）。
+     */
     @Transactional
     public void revalidateStationsAfterLevelChange(Rider rider) {
         List<TrainingStation> stations = stationRepository.findByRiderIdAndStatus(rider.getId(), 1).stream()
@@ -221,9 +225,9 @@ public class TrainingStationService {
             if (station.getEquipment() != null) {
                 try {
                     equipmentService.validateLevelMatch(rider.getRiderName(), rider.getCurrentLevel(), station.getEquipment());
-                    logger.info("Station[{}] validation passed after rider level upgrade", station.getStationCode());
+                    logger.info("Station[{}] validation passed after rider level change", station.getStationCode());
                 } catch (Exception e) {
-                    logger.warn("Station[{}] validation failed after rider level upgrade: {}",
+                    logger.warn("Station[{}] flagged as level mismatch after rider level change: {}",
                             station.getStationCode(), e.getMessage());
                 }
             }

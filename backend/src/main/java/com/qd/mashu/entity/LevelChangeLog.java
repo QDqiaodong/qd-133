@@ -10,7 +10,11 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "level_change_log")
+@Table(name = "level_change_log", uniqueConstraints = {
+        // 骑手等级只升不降，同一骑手同一新等级只会合法出现一次；
+        // 唯一约束从数据库层挡住并发双击留下的重复变更记录
+        @UniqueConstraint(name = "uk_level_change_rider_new_level", columnNames = {"rider_id", "new_level"})
+})
 @Data
 @Builder
 @NoArgsConstructor

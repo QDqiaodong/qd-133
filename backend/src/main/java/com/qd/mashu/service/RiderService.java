@@ -113,7 +113,14 @@ public class RiderService {
 
     @Transactional
     public RiderResponse updateLevel(RiderLevelUpdateRequest request) {
-        Rider rider = riderRepository.findById(request.getRiderId())
+        // 改级原因、操作人必填，少写一样就拦下，提示还没写全
+        if (request.getChangeReason() == null || request.getChangeReason().isBlank()
+                || request.getOperator() == null || request.getOperator().isBlank()) {
+            throw new IllegalArgumentException("改级原因和操作人还没写全，请补充完整后再提交");
+        }
+
+        // 改级全程锁住骑手档案行，并发连点的第二单会等第一单提交后再读
+        Rider rider = riderRepository.findWithLockById(request.getRiderId())
                 .orElseThrow(() -> new IllegalArgumentException("骑手不存在"));
 
         TrainingLevel newLevel = TrainingLevel.fromCode(request.getNewLevel());
@@ -123,8 +130,12 @@ public class RiderService {
             throw new IllegalArgumentException("骑手等级只能升级，不能降级");
         }
 
+        // 幂等：同一骑手同一新等级只生效一次。网络卡顿连点/重试时骑手已在该等级，
+        // 直接返回当前状态，不再记一条变更
         if (newLevel.equals(previousLevel)) {
-            throw new IllegalArgumentException("骑手等级未发生变化");
+            logger.info("Duplicate level update ignored: rider[{}] already at level[{}]",
+                    rider.getRiderCode(), newLevel.getName());
+            return RiderResponse.fromEntity(rider);
         }
 
         LevelChangeLog changeLog = LevelChangeLog.builder()
