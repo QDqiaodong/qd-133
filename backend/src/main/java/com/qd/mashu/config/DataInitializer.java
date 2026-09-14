@@ -7,12 +7,15 @@ import com.qd.mashu.enums.TrainingLevel;
 import com.qd.mashu.repository.ObstacleEquipmentRepository;
 import com.qd.mashu.repository.RiderRepository;
 import com.qd.mashu.repository.TrainingStationRepository;
+import com.qd.mashu.service.HeightRecheckRules;
 import com.qd.mashu.service.LevelCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -53,51 +56,21 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void createSampleEquipments() {
-        equipmentRepository.save(ObstacleEquipment.builder()
-                .equipmentCode("EQ001")
-                .equipmentName("初级障碍杆A组")
-                .obstacleHeight(40.0)
-                .adaptLevel(TrainingLevel.LEVEL_1)
-                .description("适合初级骑手训练，高度40cm")
-                .status(1)
-                .build());
-
-        equipmentRepository.save(ObstacleEquipment.builder()
-                .equipmentCode("EQ002")
-                .equipmentName("初级障碍杆B组")
-                .obstacleHeight(45.0)
-                .adaptLevel(TrainingLevel.LEVEL_1)
-                .description("适合初级骑手训练，高度45cm")
-                .status(1)
-                .build());
-
-        equipmentRepository.save(ObstacleEquipment.builder()
-                .equipmentCode("EQ003")
-                .equipmentName("中级障碍杆A组")
-                .obstacleHeight(65.0)
-                .adaptLevel(TrainingLevel.LEVEL_2)
-                .description("适合中级骑手训练，高度65cm")
-                .status(1)
-                .build());
-
-        equipmentRepository.save(ObstacleEquipment.builder()
-                .equipmentCode("EQ004")
-                .equipmentName("中级障碍杆B组")
-                .obstacleHeight(75.0)
-                .adaptLevel(TrainingLevel.LEVEL_2)
-                .description("适合中级骑手训练，高度75cm")
-                .status(1)
-                .build());
-
-        equipmentRepository.save(ObstacleEquipment.builder()
-                .equipmentCode("EQ005")
-                .equipmentName("高级障碍杆A组")
-                .obstacleHeight(95.0)
-                .adaptLevel(TrainingLevel.LEVEL_3)
-                .description("适合高级骑手训练，高度95cm")
-                .status(1)
-                .build());
-
+        // 已复核且高度相符（差值在约定 5cm 以内），可以绑上训练位
+        saveEquipmentWithRecheck("EQ001", "初级障碍杆A组", 40.0, TrainingLevel.LEVEL_1,
+                "适合初级骑手训练，高度40cm", 41.0, "陈教练");
+        saveEquipmentWithRecheck("EQ002", "初级障碍杆B组", 45.0, TrainingLevel.LEVEL_1,
+                "适合初级骑手训练，高度45cm", 45.0, "陈教练");
+        // 已复核且高度相符
+        saveEquipmentWithRecheck("EQ003", "中级障碍杆A组", 65.0, TrainingLevel.LEVEL_2,
+                "适合中级骑手训练，高度65cm", 68.0, "刘教练");
+        // 已复核但高度不符（实测比标称高 10cm），不能绑上训练位
+        saveEquipmentWithRecheck("EQ004", "中级障碍杆B组", 75.0, TrainingLevel.LEVEL_2,
+                "适合中级骑手训练，高度75cm", 85.0, "刘教练");
+        // 已复核且高度相符
+        saveEquipmentWithRecheck("EQ005", "高级障碍杆A组", 95.0, TrainingLevel.LEVEL_3,
+                "适合高级骑手训练，高度95cm", 94.0, "周教练");
+        // 未做杆高复核，不能绑上训练位
         equipmentRepository.save(ObstacleEquipment.builder()
                 .equipmentCode("EQ006")
                 .equipmentName("高级障碍杆B组")
@@ -106,7 +79,7 @@ public class DataInitializer implements CommandLineRunner {
                 .description("适合高级骑手训练，高度105cm")
                 .status(1)
                 .build());
-
+        // 未做杆高复核，不能绑上训练位
         equipmentRepository.save(ObstacleEquipment.builder()
                 .equipmentCode("EQ007")
                 .equipmentName("专业级障碍杆")
@@ -115,17 +88,33 @@ public class DataInitializer implements CommandLineRunner {
                 .description("适合专业骑手训练，高度125cm")
                 .status(1)
                 .build());
+        // 已复核但高度不符（实测比标称低 8cm），不能绑上训练位
+        saveEquipmentWithRecheck("EQ008", "大师级障碍杆", 150.0, TrainingLevel.LEVEL_5,
+                "适合大师级骑手训练，高度150cm", 142.0, "周教练");
 
+        logger.info("Created 8 sample obstacle equipments (with height recheck states)");
+    }
+
+    /**
+     * 按规则计算复核结论后落库，保证样例数据的复核结论与高度差、绑定资格始终一致。
+     */
+    private void saveEquipmentWithRecheck(String code, String name, double nominalHeight,
+                                          TrainingLevel level, String description,
+                                          double measuredHeight, String reviewer) {
+        String result = HeightRecheckRules.evaluate(nominalHeight, measuredHeight);
         equipmentRepository.save(ObstacleEquipment.builder()
-                .equipmentCode("EQ008")
-                .equipmentName("大师级障碍杆")
-                .obstacleHeight(150.0)
-                .adaptLevel(TrainingLevel.LEVEL_5)
-                .description("适合大师级骑手训练，高度150cm")
+                .equipmentCode(code)
+                .equipmentName(name)
+                .obstacleHeight(nominalHeight)
+                .adaptLevel(level)
+                .description(description)
                 .status(1)
+                .measuredHeight(measuredHeight)
+                .recheckReviewer(reviewer)
+                .recheckResult(result)
+                .recheckHeightDiff(HeightRecheckRules.diff(nominalHeight, measuredHeight))
+                .recheckTime(LocalDateTime.now())
                 .build());
-
-        logger.info("Created 8 sample obstacle equipments");
     }
 
     private void createSampleRiders() {
@@ -190,7 +179,6 @@ public class DataInitializer implements CommandLineRunner {
         ObstacleEquipment eq001 = equipmentRepository.findByEquipmentCode("EQ001").orElse(null);
         ObstacleEquipment eq003 = equipmentRepository.findByEquipmentCode("EQ003").orElse(null);
         ObstacleEquipment eq005 = equipmentRepository.findByEquipmentCode("EQ005").orElse(null);
-
         stationRepository.save(TrainingStation.builder()
                 .stationCode("ST001")
                 .stationName("训练位1号")

@@ -32,3 +32,19 @@ docker compose up -d --build
 ```
 
 Docker Compose 端口均绑定到 `127.0.0.1`，镜像基础地址通过 `.env` 中的 `DOCKER_REGISTRY` 统一控制。
+
+## 杆高复核
+
+教练在「杆高复核」页填写**实测高度**与**复测人**后提交，系统按俱乐部约定（实测与标称相差超过 **5cm**，见 `HeightRecheckRules.RECHECK_TOLERANCE_CM`）判定：
+
+- 差值 ≤ 5cm：结论「高度相符」，允许绑上训练位；
+- 差值 > 5cm：结论「高度不符」，**拦住绑定**；若该杆已绑在训练位上会被立即拆下；
+- 未做复核：禁止绑定。
+
+复核结论、高度差、复测人、复核时间与 `bindable` 绑定资格均由后端计算并持久化（JPA `ddl-auto: update` 自动加列），刷新页面后结论与能否绑定保持一致。列表支持「全部 / 已复核 / 未复核」筛选；绑定拦截在训练位创建、编辑、绑定三个入口的服务端统一校验（前端下拉同步置灰）。档案标称高度被修改时，原复核结论失效并拆下训练位，须重新复核。
+
+接口：
+
+- `GET /api/recheck?rechecked=true|false` 复核列表（可按是否已复核筛选）
+- `POST /api/recheck/{equipmentId}` 提交复核（`{ "measuredHeight": 41.0, "reviewer": "陈教练" }`）
+

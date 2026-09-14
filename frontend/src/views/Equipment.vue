@@ -115,6 +115,18 @@ const handleDelete = async (id: number) => {
         </template>
       </ElTableColumn>
       <ElTableColumn prop="adaptLevelDesc" label="等级描述" show-overflow-tooltip />
+      <ElTableColumn label="杆高复核" width="100" align="center">
+        <template #default="{ row }">
+          <ElTag v-if="row.recheckResult === 'MATCH'" type="success">高度相符</ElTag>
+          <ElTag v-else-if="row.recheckResult === 'MISMATCH'" type="danger">高度不符</ElTag>
+          <ElTag v-else type="info">未复核</ElTag>
+        </template>
+      </ElTableColumn>
+      <ElTableColumn label="能否绑定" width="100" align="center">
+        <template #default="{ row }">
+          <ElTag :type="row.bindable ? 'success' : 'danger'">{{ row.bindable ? '可绑定' : '禁绑' }}</ElTag>
+        </template>
+      </ElTableColumn>
       <ElTableColumn prop="description" label="备注" show-overflow-tooltip />
       <ElTableColumn label="操作">
         <template #default="{ row }">

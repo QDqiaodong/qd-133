@@ -28,6 +28,14 @@ export interface ObstacleEquipment {
   adaptLevelDesc: string
   description: string
   status: number
+  measuredHeight?: number | null
+  recheckReviewer?: string | null
+  recheckResult?: 'MATCH' | 'MISMATCH' | null
+  recheckResultName?: string | null
+  recheckHeightDiff?: number | null
+  recheckTime?: string | null
+  rechecked?: boolean
+  bindable?: boolean
 }
 
 export interface Rider {
@@ -155,6 +163,17 @@ export const stationApi = {
     return request.post(`/station/${stationId}/bind`, null, {
       params: { riderId, equipmentId }
     })
+  }
+}
+
+export const recheckApi = {
+  list(rechecked?: boolean) {
+    return request.get('/recheck', {
+      params: rechecked === undefined ? {} : { rechecked }
+    })
+  },
+  submit(equipmentId: number, data: { measuredHeight: number; reviewer: string }) {
+    return request.post(`/recheck/${equipmentId}`, data)
   }
 }
 

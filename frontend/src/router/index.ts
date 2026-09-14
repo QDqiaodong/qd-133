@@ -23,6 +23,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/Station.vue')
   },
   {
+    path: '/recheck',
+    name: 'Recheck',
+    component: () => import('../views/Recheck.vue')
+  },
+  {
     path: '/level-summary',
     name: 'LevelSummary',
     component: () => import('../views/LevelSummary.vue')

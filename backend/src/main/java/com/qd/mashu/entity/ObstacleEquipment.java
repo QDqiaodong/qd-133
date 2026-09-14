@@ -41,6 +41,28 @@ public class ObstacleEquipment {
     @Builder.Default
     private Integer status = 1;
 
+    // ===== 杆高复核信息 =====
+
+    /** 场上实测高度（cm），未做杆高复核时为 null */
+    @Column(name = "measured_height")
+    private Double measuredHeight;
+
+    /** 复测人 */
+    @Column(name = "recheck_reviewer", length = 50)
+    private String recheckReviewer;
+
+    /** 复核结论：MATCH-高度相符，MISMATCH-高度不符；未复核时为 null */
+    @Column(name = "recheck_result", length = 20)
+    private String recheckResult;
+
+    /** 实测减标称的高度差（cm），带正负号 */
+    @Column(name = "recheck_height_diff")
+    private Double recheckHeightDiff;
+
+    /** 复核时间 */
+    @Column(name = "recheck_time")
+    private LocalDateTime recheckTime;
+
     @Column(name = "create_time", nullable = false)
     @Builder.Default
     private LocalDateTime createTime = LocalDateTime.now();

@@ -48,25 +48,50 @@ const getRiderOptions = computed(() => {
   }))
 })
 
+const equipmentOptionLabel = (e: ObstacleEquipment) => {
+  let recheckTag = ''
+  if (!e.rechecked) {
+    recheckTag = '【未复核·禁绑】'
+  } else if (e.recheckResult === 'MISMATCH') {
+    recheckTag = '【高度不符·禁绑】'
+  }
+  return `${e.equipmentCode} - ${e.equipmentName} (${getLevelName(e.adaptLevel)})${recheckTag}`
+}
+
+const equipmentBindBlockReason = (equipment: ObstacleEquipment | undefined) => {
+  if (!equipment) return ''
+  if (!equipment.rechecked) {
+    return `杆[${equipment.equipmentName}]未做杆高复核，不能绑上训练位`
+  }
+  if (equipment.recheckResult === 'MISMATCH') {
+    return `杆[${equipment.equipmentName}]复核结论为高度不符（标称 ${equipment.obstacleHeight}cm / 实测 ${equipment.measuredHeight}cm），已拦住绑定`
+  }
+  return ''
+}
+
 const getEquipmentOptions = computed(() => {
   return equipmentList.value.map(e => ({
-    label: `${e.equipmentCode} - ${e.equipmentName} (${getLevelName(e.adaptLevel)})`,
-    value: e.id
+    label: equipmentOptionLabel(e),
+    value: e.id,
+    // 未做杆高复核或复核高度不符的杆不能绑上训练位
+    disabled: !e.bindable
   }))
 })
 
 const getAvailableEquipmentOptions = computed(() => {
   const selectedRiderId = bindForm.value.riderId
   if (!selectedRiderId) return getEquipmentOptions.value
-  
+
   const rider = riderList.value.find(r => r.id === selectedRiderId)
   if (!rider) return getEquipmentOptions.value
-  
+
   return equipmentList.value
     .filter(e => e.adaptLevel <= rider.currentLevel)
     .map(e => ({
-      label: `${e.equipmentCode} - ${e.equipmentName} (${getLevelName(e.adaptLevel)})`,
-      value: e.id
+      label: equipmentOptionLabel(e),
+      value: e.id,
+      // 未做杆高复核或复核高度不符的杆不能绑上训练位
+      disabled: !e.bindable
     }))
 })
 
@@ -118,6 +143,15 @@ const openBindDialog = (item: TrainingStation) => {
 }
 
 const handleSubmit = async () => {
+  if (form.value.equipmentId) {
+    const blockReason = equipmentBindBlockReason(
+      equipmentList.value.find(e => e.id === form.value.equipmentId)
+    )
+    if (blockReason) {
+      ElMessageBox.alert(blockReason, '禁止绑定', { type: 'error' })
+      return
+    }
+  }
   try {
     if (editMode.value) {
       await stationApi.update(editingId.value, form.value)
@@ -141,6 +175,13 @@ const handleBind = async () => {
 
   const rider = riderList.value.find(r => r.id === bindForm.value.riderId)
   const equipment = equipmentList.value.find(e => e.id === bindForm.value.equipmentId)
+
+  // 杆高复核拦截：未复核 / 高度不符的杆不能绑上训练位（以后端校验为准）
+  const blockReason = equipmentBindBlockReason(equipment)
+  if (blockReason) {
+    ElMessageBox.alert(blockReason, '禁止绑定', { type: 'error' })
+    return
+  }
 
   if (rider && equipment && equipment.adaptLevel > rider.currentLevel) {
     ElMessageBox.alert(
@@ -204,6 +245,13 @@ const handleDelete = async (id: number) => {
           <span v-else style="color: #909399;">-</span>
         </template>
       </ElTableColumn>
+      <ElTableColumn label="杆高复核" width="100" align="center">
+        <template #default="{ row }">
+          <ElTag v-if="row.equipment && row.equipment.recheckResult === 'MATCH'" type="success">高度相符</ElTag>
+          <ElTag v-else-if="row.equipment && row.equipment.recheckResult === 'MISMATCH'" type="danger">高度不符</ElTag>
+          <span v-if="!row.equipment" style="color: #909399;">-</span>
+        </template>
+      </ElTableColumn>
       <ElTableColumn label="状态">
         <template #default="{ row }">
           <span v-if="row.rider && row.equipment" style="color: #67c23a;">已绑定</span>
@@ -234,7 +282,13 @@ const handleDelete = async (id: number) => {
         </ElFormItem>
         <ElFormItem label="设备" prop="equipmentId">
           <ElSelect v-model="form.equipmentId" placeholder="请选择设备">
-            <ElOption v-for="option in getEquipmentOptions" :key="option.value" :label="option.label" :value="option.value" />
+            <ElOption
+              v-for="option in getEquipmentOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+              :disabled="option.disabled"
+            />
           </ElSelect>
         </ElFormItem>
       </ElForm>
@@ -253,18 +307,22 @@ const handleDelete = async (id: number) => {
         </ElFormItem>
         <ElFormItem label="选择设备" prop="equipmentId">
           <ElSelect v-model="bindForm.equipmentId" placeholder="请选择设备">
-            <ElOption 
-              v-for="option in getAvailableEquipmentOptions" 
-              :key="option.value" 
-              :label="option.label" 
-              :value="option.value" 
+            <ElOption
+              v-for="option in getAvailableEquipmentOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+              :disabled="option.disabled"
             />
           </ElSelect>
         </ElFormItem>
       </ElForm>
       <div style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
-        <p style="color: #606266; font-size: 14px;">
+        <p style="color: #606266; font-size: 14px; margin-bottom: 4px;">
           <strong>等级匹配规则：</strong>骑手等级必须大于或等于设备适配等级才能绑定。
+        </p>
+        <p style="color: #f56c6c; font-size: 14px;">
+          <strong>杆高复核规则：</strong>未做杆高复核、或实测与标称相差超过约定 5cm 判定为高度不符的杆，一律禁止绑上训练位（下拉中已置灰）。
         </p>
       </div>
       <template #footer>

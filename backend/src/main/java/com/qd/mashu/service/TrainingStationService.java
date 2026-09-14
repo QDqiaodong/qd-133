@@ -34,6 +34,9 @@ public class TrainingStationService {
     @Autowired
     private ObstacleEquipmentService equipmentService;
 
+    @Autowired
+    private HeightRecheckService heightRecheckService;
+
     @Transactional
     public TrainingStationResponse create(TrainingStationRequest request) {
         if (stationRepository.existsByStationCode(request.getStationCode())) {
@@ -51,6 +54,8 @@ public class TrainingStationService {
         if (request.getEquipmentId() != null) {
             equipment = equipmentRepository.findById(request.getEquipmentId())
                     .orElseThrow(() -> new IllegalArgumentException("设备不存在"));
+            // 未复核 / 高度不符的杆不能绑上训练位
+            heightRecheckService.validateBindable(equipment);
         }
 
         if (rider != null && equipment != null) {
@@ -92,6 +97,8 @@ public class TrainingStationService {
         if (request.getEquipmentId() != null) {
             equipment = equipmentRepository.findById(request.getEquipmentId())
                     .orElseThrow(() -> new IllegalArgumentException("设备不存在"));
+            // 未复核 / 高度不符的杆不能绑上训练位
+            heightRecheckService.validateBindable(equipment);
         }
 
         if (rider != null && equipment != null) {
@@ -154,6 +161,9 @@ public class TrainingStationService {
 
         ObstacleEquipment equipment = equipmentRepository.findById(equipmentId)
                 .orElseThrow(() -> new IllegalArgumentException("设备不存在"));
+
+        // 未复核 / 高度不符的杆不能绑上训练位
+        heightRecheckService.validateBindable(equipment);
 
         equipmentService.validateLevelMatch(rider.getRiderName(), rider.getCurrentLevel(), equipment);
 

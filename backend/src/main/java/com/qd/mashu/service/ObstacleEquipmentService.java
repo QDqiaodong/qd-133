@@ -3,9 +3,11 @@ package com.qd.mashu.service;
 import com.qd.mashu.dto.request.ObstacleEquipmentRequest;
 import com.qd.mashu.dto.response.ObstacleEquipmentResponse;
 import com.qd.mashu.entity.ObstacleEquipment;
+import com.qd.mashu.entity.TrainingStation;
 import com.qd.mashu.enums.TrainingLevel;
 import com.qd.mashu.exception.LevelMismatchException;
 import com.qd.mashu.repository.ObstacleEquipmentRepository;
+import com.qd.mashu.repository.TrainingStationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +24,9 @@ public class ObstacleEquipmentService {
 
     @Autowired
     private ObstacleEquipmentRepository equipmentRepository;
+
+    @Autowired
+    private TrainingStationRepository stationRepository;
 
     @Autowired
     private LevelCacheService levelCacheService;
@@ -63,16 +68,60 @@ public class ObstacleEquipmentService {
 
         equipment.setEquipmentCode(request.getEquipmentCode());
         equipment.setEquipmentName(request.getEquipmentName());
+
+        // 档案标称高度一旦修改，原杆高复核结论即失效，必须重新复核；
+        // 已绑在训练位上的也要先拆下来，避免“标称对不上实测”的杆继续占着训练位。
+        boolean nominalHeightChanged = request.getObstacleHeight() != null
+                && Double.compare(request.getObstacleHeight(), equipment.getObstacleHeight()) != 0;
+
         equipment.setObstacleHeight(request.getObstacleHeight());
         equipment.setAdaptLevel(TrainingLevel.fromCode(request.getAdaptLevel()));
         equipment.setDescription(request.getDescription());
 
+        int unbound = 0;
+        if (nominalHeightChanged) {
+            clearRecheck(equipment);
+            unbound = detachFromStations(equipment);
+            logger.info("Nominal height changed for equipment[{}], recheck reset and {} station(s) detached",
+                    equipment.getEquipmentCode(), unbound);
+        }
+
         equipment = equipmentRepository.save(equipment);
-        logger.info("Updated obstacle equipment: {}", equipment.getEquipmentCode());
+        logger.info("Updated obstacle equipment: {}{}",
+                equipment.getEquipmentCode(),
+                nominalHeightChanged ? "，标称高度已变更，原复核结论失效" : "");
 
         levelCacheService.refreshLevelCache();
 
         return ObstacleEquipmentResponse.fromEntity(equipment);
+    }
+
+    /**
+     * 清除某根杆的杆高复核结论。
+     */
+    public void clearRecheck(ObstacleEquipment equipment) {
+        equipment.setMeasuredHeight(null);
+        equipment.setRecheckReviewer(null);
+        equipment.setRecheckResult(null);
+        equipment.setRecheckHeightDiff(null);
+        equipment.setRecheckTime(null);
+    }
+
+    /**
+     * 把某根杆从所有在用训练位上拆下来，返回拆下的训练位数量。
+     */
+    public int detachFromStations(ObstacleEquipment equipment) {
+        List<TrainingStation> boundStations = stationRepository
+                .findByEquipmentId(equipment.getId()).stream()
+                .filter(s -> s.getStatus() != null && s.getStatus() == 1)
+                .collect(Collectors.toList());
+        for (TrainingStation station : boundStations) {
+            station.setEquipment(null);
+            stationRepository.save(station);
+            logger.warn("Detached equipment[{}] from station[{}] because its height recheck is no longer valid",
+                    equipment.getEquipmentCode(), station.getStationCode());
+        }
+        return boundStations.size();
     }
 
     @Transactional
