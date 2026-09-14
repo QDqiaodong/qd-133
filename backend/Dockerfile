@@ -7,7 +7,9 @@ COPY pom.xml settings.xml ./
 RUN --mount=type=cache,target=/root/.m2 mvn -s settings.xml dependency:go-offline -q
 
 COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn -s settings.xml package -DskipTests -q
+RUN --mount=type=cache,target=/root/.m2 \
+    rm -rf /root/.m2/repository/org/springframework /root/.m2/repository/jakarta && \
+    mvn -s settings.xml package -DskipTests -q
 
 ARG DOCKER_REGISTRY=docker.io/library/
 FROM ${DOCKER_REGISTRY}eclipse-temurin:17-jre
