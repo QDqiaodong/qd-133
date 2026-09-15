@@ -33,6 +33,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/Review.vue')
   },
   {
+    path: '/duty-log',
+    name: 'DutyLog',
+    component: () => import('../views/DutyLog.vue')
+  },
+  {
     path: '/level-summary',
     name: 'LevelSummary',
     component: () => import('../views/LevelSummary.vue')

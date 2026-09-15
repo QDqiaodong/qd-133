@@ -120,6 +120,15 @@ export interface SessionReviewSummary {
   starCounts: SessionReviewStarCount[]
 }
 
+export interface DutyLog {
+  id: number
+  dutyDate: string
+  onDutyCoach: string
+  incomingCoach: string
+  tonightNotes: string
+  createTime: string
+}
+
 export const equipmentApi = {
   create(data: Omit<ObstacleEquipment, 'id' | 'adaptLevelName' | 'adaptLevelDesc' | 'status'>) {
     return request.post('/equipment', data)
@@ -212,6 +221,22 @@ export const reviewApi = {
   },
   summary() {
     return request.get('/review/summary')
+  }
+}
+
+export const dutyLogApi = {
+  create(data: {
+    dutyDate: string
+    onDutyCoach: string
+    incomingCoach: string
+    tonightNotes: string
+  }) {
+    return request.post('/duty-log', data)
+  },
+  list(dutyDate?: string) {
+    return request.get('/duty-log', {
+      params: dutyDate ? { dutyDate } : {}
+    })
   }
 }
 

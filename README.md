@@ -89,3 +89,15 @@ Docker Compose 端口均绑定到 `127.0.0.1`，镜像基础地址通过 `.env` 
 - `POST /api/rider` / `PUT /api/rider/{id}` 新增/编辑骑手（`{ ..., "lastFitnessTestDate": "2026-09-10" }`，格式 `YYYY-MM-DD`，可空）
 - `GET /api/rider` 骑手列表，每个骑手带 `lastFitnessTestDate`
 
+## 值班记录
+
+教练在「值班记录」页每天写一条交接记录：**值班日期、当班教练、接班教练、今晚要留意的事**四项必填，少填任何一项前后端都会拦住，不许提交。事项可记录训练位维修、器材更换等交接提醒。
+
+记录落库到 `duty_log` 表（JPA `ddl-auto: update` 自动建表），`duty_date` 有唯一约束并由服务端先查重，保证一天只保留一条；历史记录按日期倒序展示，也可用日期选择器按 `YYYY-MM-DD` 精确翻查前几天的内容，刷新或隔天再打开仍然存在。
+
+接口：
+
+- `POST /api/duty-log` 提交值班记录（`{ "dutyDate": "2026-09-15", "onDutyCoach": "陈教练", "incomingCoach": "林教练", "tonightNotes": "三号训练位栏杆松动需要维修" }`）
+- `GET /api/duty-log` 查询全部记录（日期倒序）
+- `GET /api/duty-log?dutyDate=2026-09-15` 查询指定日期记录
+
