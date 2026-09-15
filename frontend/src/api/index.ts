@@ -34,6 +34,7 @@ export interface ObstacleEquipment {
   adaptLevelDesc: string
   description: string
   status: number
+  statusName?: string
   measuredHeight?: number | null
   recheckReviewer?: string | null
   recheckResult?: 'MATCH' | 'MISMATCH' | null
@@ -42,6 +43,31 @@ export interface ObstacleEquipment {
   recheckTime?: string | null
   rechecked?: boolean
   bindable?: boolean
+}
+
+export interface EquipmentRepairSendPayload {
+  faultDescription: string
+  handlerCoach: string
+}
+
+export interface EquipmentRepairReturnPayload {
+  repairConclusion: string
+}
+
+export interface EquipmentRepairOrder {
+  id: number
+  equipmentId: number
+  equipmentCode: string
+  equipmentName: string
+  faultDescription: string
+  handlerCoach: string
+  status: 'IN_REPAIR' | 'RETURNED'
+  statusName: string
+  repairConclusion?: string | null
+  sentTime: string
+  returnedTime?: string | null
+  createTime: string
+  updateTime?: string | null
 }
 
 export interface Rider {
@@ -153,6 +179,20 @@ export const equipmentApi = {
   },
   listByLevel(level: number) {
     return request.get(`/equipment/level/${level}`)
+  }
+}
+
+export const equipmentRepairApi = {
+  send(equipmentId: number, data: EquipmentRepairSendPayload) {
+    return request.post(`/equipment-repair/equipment/${equipmentId}/send`, data)
+  },
+  returnOrder(orderId: number, data: EquipmentRepairReturnPayload) {
+    return request.post(`/equipment-repair/${orderId}/return`, data)
+  },
+  list(status?: 'IN_REPAIR' | 'RETURNED') {
+    return request.get('/equipment-repair', {
+      params: status ? { status } : {}
+    })
   }
 }
 

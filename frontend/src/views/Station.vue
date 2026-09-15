@@ -61,17 +61,27 @@ const inactiveRiderBlockReason = (riderId: number | undefined) => {
 }
 
 const equipmentOptionLabel = (e: ObstacleEquipment) => {
-  let recheckTag = ''
-  if (!e.rechecked) {
-    recheckTag = '【未复核·禁绑】'
+  let blockTag = ''
+  if (e.status === 2) {
+    blockTag = '【在修中·禁绑】'
+  } else if (e.status === 0) {
+    blockTag = '【已删除·禁绑】'
+  } else if (!e.rechecked) {
+    blockTag = '【未复核·禁绑】'
   } else if (e.recheckResult === 'MISMATCH') {
-    recheckTag = '【高度不符·禁绑】'
+    blockTag = '【高度不符·禁绑】'
   }
-  return `${e.equipmentCode} - ${e.equipmentName} (${getLevelName(e.adaptLevel)})${recheckTag}`
+  return `${e.equipmentCode} - ${e.equipmentName} (${getLevelName(e.adaptLevel)})${blockTag}`
 }
 
 const equipmentBindBlockReason = (equipment: ObstacleEquipment | undefined) => {
   if (!equipment) return ''
+  if (equipment.status === 2) {
+    return `杆[${equipment.equipmentName}]正在送修，不能绑上训练位`
+  }
+  if (equipment.status === 0) {
+    return `杆[${equipment.equipmentName}]已删除，不能绑上训练位`
+  }
   if (!equipment.rechecked) {
     return `杆[${equipment.equipmentName}]未做杆高复核，不能绑上训练位`
   }
@@ -381,7 +391,7 @@ const handleDelete = async (id: number) => {
           <strong>等级匹配规则：</strong>骑手等级必须大于或等于设备适配等级才能绑定。
         </p>
         <p style="color: #f56c6c; font-size: 14px;">
-          <strong>杆高复核规则：</strong>未做杆高复核、或实测与标称相差超过约定 5cm 判定为高度不符的杆，一律禁止绑上训练位（下拉中已置灰）。
+          <strong>绑定规则：</strong>在修中的杆不会出现在绑定名单；未做杆高复核、或实测与标称相差超过约定 5cm 判定为高度不符的杆，一律禁止绑上训练位（下拉中已置灰）。
         </p>
       </div>
       <template #footer>

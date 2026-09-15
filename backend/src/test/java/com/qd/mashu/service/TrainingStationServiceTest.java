@@ -45,6 +45,9 @@ class TrainingStationServiceTest {
     @Mock
     private HeightRecheckService heightRecheckService;
 
+    @Mock
+    private EquipmentRepairService repairService;
+
     @InjectMocks
     private TrainingStationService stationService;
 
@@ -92,6 +95,27 @@ class TrainingStationServiceTest {
         // 下拉里点得到，提交过不去
         assertTrue(ex.getMessage().contains("已停用"));
         verify(equipmentRepository, never()).findById(any());
+        verify(stationRepository, never()).save(any());
+    }
+
+    @Test
+    void bind_in_repair_equipment_rejected() {
+        Rider active = rider(2L, "李四", 1);
+        ObstacleEquipment repairingPole = pole();
+        repairingPole.setStatus(2);
+        when(stationRepository.findById(10L))
+                .thenReturn(Optional.of(station(10L, "ST004", "训练位4号", null, null)));
+        when(riderRepository.findWithLockById(2L)).thenReturn(Optional.of(active));
+        when(equipmentRepository.findWithLockById(7L)).thenReturn(Optional.of(repairingPole));
+        doThrow(new IllegalArgumentException("杆[初级障碍杆A组]正在送修，不能绑上训练位"))
+                .when(repairService).validateCanBind(repairingPole);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> stationService.bindRiderAndEquipment(10L, 2L, 7L));
+
+        assertTrue(ex.getMessage().contains("正在送修"));
+        // 在修中的杆不能挂回训练位
+        verify(heightRecheckService, never()).validateBindable(any());
         verify(stationRepository, never()).save(any());
     }
 

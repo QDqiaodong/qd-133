@@ -38,6 +38,9 @@ public class TrainingStationService {
     @Autowired
     private HeightRecheckService heightRecheckService;
 
+    @Autowired
+    private EquipmentRepairService repairService;
+
     @Transactional
     public TrainingStationResponse create(TrainingStationRequest request) {
         if (stationRepository.existsByStationCode(request.getStationCode())) {
@@ -53,10 +56,9 @@ public class TrainingStationService {
         }
 
         if (request.getEquipmentId() != null) {
-            equipment = equipmentRepository.findById(request.getEquipmentId())
-                    .orElseThrow(() -> new IllegalArgumentException("设备不存在"));
-            // 未复核 / 高度不符的杆不能绑上训练位
-            heightRecheckService.validateBindable(equipment);
+            // 锁住器材行并在锁内复查：在修 / 已删除的杆不能绑上训练位，
+            // 未复核 / 高度不符同样拦截。
+            equipment = loadBindableEquipmentWithLock(request.getEquipmentId());
         }
 
         if (rider != null && equipment != null) {
@@ -96,10 +98,9 @@ public class TrainingStationService {
         }
 
         if (request.getEquipmentId() != null) {
-            equipment = equipmentRepository.findById(request.getEquipmentId())
-                    .orElseThrow(() -> new IllegalArgumentException("设备不存在"));
-            // 未复核 / 高度不符的杆不能绑上训练位
-            heightRecheckService.validateBindable(equipment);
+            // 锁住器材行并在锁内复查：在修 / 已删除的杆不能绑上训练位，
+            // 未复核 / 高度不符同样拦截。
+            equipment = loadBindableEquipmentWithLock(request.getEquipmentId());
         }
 
         if (rider != null && equipment != null) {
@@ -196,11 +197,7 @@ public class TrainingStationService {
         // 与另一头的「停用档案」并发时，谁先拿到骑手行锁谁成，后到的一单必失败。
         Rider rider = loadActiveRiderWithLock(riderId);
 
-        ObstacleEquipment equipment = equipmentRepository.findById(equipmentId)
-                .orElseThrow(() -> new IllegalArgumentException("设备不存在"));
-
-        // 未复核 / 高度不符的杆不能绑上训练位
-        heightRecheckService.validateBindable(equipment);
+        ObstacleEquipment equipment = loadBindableEquipmentWithLock(equipmentId);
 
         equipmentService.validateLevelMatch(rider.getRiderName(), rider.getCurrentLevel(), equipment);
 
@@ -248,6 +245,18 @@ public class TrainingStationService {
                     "骑手[" + rider.getRiderName() + "]的档案已停用，不能再绑到训练位");
         }
         return rider;
+    }
+
+    /**
+     * 取器材档案行的悲观写锁并在锁内复查绑定资格：
+     * 在修中的杆不能再绑回训练位；未复核 / 高度不符 / 已删除也一律拦回。
+     */
+    private ObstacleEquipment loadBindableEquipmentWithLock(Long equipmentId) {
+        ObstacleEquipment equipment = equipmentRepository.findWithLockById(equipmentId)
+                .orElseThrow(() -> new IllegalArgumentException("设备不存在"));
+        repairService.validateCanBind(equipment);
+        heightRecheckService.validateBindable(equipment);
+        return equipment;
     }
 
     private boolean isOccupiedByActiveRider(TrainingStation station) {

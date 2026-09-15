@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RouterView, useRouter, useRoute } from 'vue-router'
 import { ElMenu, ElMenuItem, ElContainer, ElHeader, ElAside, ElMain } from 'element-plus'
-import { Monitor, Grid, User, Location, List, CircleCheck, EditPen, Calendar } from '@element-plus/icons-vue'
+import { Monitor, Grid, User, Location, List, CircleCheck, EditPen, Calendar, Tools } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -12,6 +12,7 @@ const menuItems = [
   { path: '/rider', name: '骑手管理', icon: User },
   { path: '/station', name: '训练位管理', icon: Location },
   { path: '/recheck', name: '杆高复核', icon: CircleCheck },
+  { path: '/repair', name: '器材送修', icon: Tools },
   { path: '/review', name: '课后点评', icon: EditPen },
   { path: '/duty-log', name: '值班记录', icon: Calendar },
   { path: '/level-summary', name: '等级汇总', icon: List }

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElTable, ElTableColumn, ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElInputNumber, ElMessage, ElTag } from 'element-plus'
+import { useRouter } from 'vue-router'
 import { equipmentApi, type ObstacleEquipment } from '@/api'
+
+const router = useRouter()
 
 const equipmentList = ref<ObstacleEquipment[]>([])
 const dialogVisible = ref(false)
@@ -102,7 +105,8 @@ const handleDelete = async (id: number) => {
 
 <template>
   <div class="equipment-page">
-    <div style="margin-bottom: 20px; display: flex; justify-content: flex-end;">
+    <div style="margin-bottom: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+      <ElButton type="warning" @click="router.push('/repair')">器材送修</ElButton>
       <ElButton type="primary" @click="openAddDialog">添加器材</ElButton>
     </div>
     <ElTable :data="equipmentList" border>
@@ -115,6 +119,11 @@ const handleDelete = async (id: number) => {
         </template>
       </ElTableColumn>
       <ElTableColumn prop="adaptLevelDesc" label="等级描述" show-overflow-tooltip />
+      <ElTableColumn label="器材状态" width="100" align="center">
+        <template #default="{ row }">
+          <ElTag :type="row.status === 1 ? 'success' : 'info'">{{ row.statusName || '在用' }}</ElTag>
+        </template>
+      </ElTableColumn>
       <ElTableColumn label="杆高复核" width="100" align="center">
         <template #default="{ row }">
           <ElTag v-if="row.recheckResult === 'MATCH'" type="success">高度相符</ElTag>

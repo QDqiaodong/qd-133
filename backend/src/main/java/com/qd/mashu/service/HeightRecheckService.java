@@ -26,6 +26,9 @@ public class HeightRecheckService {
 
     private static final Logger logger = LoggerFactory.getLogger(HeightRecheckService.class);
 
+    /** 器材状态：在修中。 */
+    private static final int STATUS_IN_REPAIR = 2;
+
     @Autowired
     private ObstacleEquipmentRepository equipmentRepository;
 
@@ -55,8 +58,11 @@ public class HeightRecheckService {
             throw new IllegalArgumentException("请填写复测人");
         }
 
-        ObstacleEquipment equipment = equipmentRepository.findById(equipmentId)
+        ObstacleEquipment equipment = equipmentRepository.findWithLockById(equipmentId)
                 .orElseThrow(() -> new IllegalArgumentException("设备不存在"));
+        if (equipment.getStatus() != null && equipment.getStatus() == STATUS_IN_REPAIR) {
+            throw new IllegalArgumentException("杆[" + equipment.getEquipmentName() + "]正在送修，暂不能提交杆高复核");
+        }
 
         double nominal = equipment.getObstacleHeight();
         double measured = request.getMeasuredHeight();

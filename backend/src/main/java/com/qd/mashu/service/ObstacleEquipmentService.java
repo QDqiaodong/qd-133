@@ -22,6 +22,9 @@ public class ObstacleEquipmentService {
 
     private static final Logger logger = LoggerFactory.getLogger(ObstacleEquipmentService.class);
 
+    /** 器材状态：在修中。在用=1、删除=0 沿用现有约定。 */
+    private static final int STATUS_IN_REPAIR = 2;
+
     @Autowired
     private ObstacleEquipmentRepository equipmentRepository;
 
@@ -58,8 +61,11 @@ public class ObstacleEquipmentService {
 
     @Transactional
     public ObstacleEquipmentResponse update(Long id, ObstacleEquipmentRequest request) {
-        ObstacleEquipment equipment = equipmentRepository.findById(id)
+        ObstacleEquipment equipment = equipmentRepository.findWithLockById(id)
                 .orElseThrow(() -> new IllegalArgumentException("设备不存在"));
+        if (equipment.getStatus() != null && equipment.getStatus() == STATUS_IN_REPAIR) {
+            throw new IllegalArgumentException("杆[" + equipment.getEquipmentName() + "]正在送修，暂不能编辑档案");
+        }
 
         if (!equipment.getEquipmentCode().equals(request.getEquipmentCode())
                 && equipmentRepository.existsByEquipmentCode(request.getEquipmentCode())) {
@@ -118,7 +124,7 @@ public class ObstacleEquipmentService {
         for (TrainingStation station : boundStations) {
             station.setEquipment(null);
             stationRepository.save(station);
-            logger.warn("Detached equipment[{}] from station[{}] because its height recheck is no longer valid",
+            logger.warn("Detached equipment[{}] from station[{}] before the equipment became unavailable",
                     equipment.getEquipmentCode(), station.getStationCode());
         }
         return boundStations.size();
@@ -126,8 +132,11 @@ public class ObstacleEquipmentService {
 
     @Transactional
     public void delete(Long id) {
-        ObstacleEquipment equipment = equipmentRepository.findById(id)
+        ObstacleEquipment equipment = equipmentRepository.findWithLockById(id)
                 .orElseThrow(() -> new IllegalArgumentException("设备不存在"));
+        if (equipment.getStatus() != null && equipment.getStatus() == STATUS_IN_REPAIR) {
+            throw new IllegalArgumentException("杆[" + equipment.getEquipmentName() + "]正在送修，请修好归还后再删除");
+        }
         equipment.setStatus(0);
         equipmentRepository.save(equipment);
         logger.info("Deleted obstacle equipment: {}", equipment.getEquipmentCode());

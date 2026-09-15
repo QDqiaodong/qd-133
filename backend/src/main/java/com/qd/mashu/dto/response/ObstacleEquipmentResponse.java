@@ -33,6 +33,9 @@ public class ObstacleEquipmentResponse {
 
     private Integer status;
 
+    /** 在用 / 在修中 / 已删除 */
+    private String statusName;
+
     // ===== 杆高复核信息 =====
 
     private Double measuredHeight;
@@ -61,7 +64,10 @@ public class ObstacleEquipmentResponse {
 
     public static ObstacleEquipmentResponse fromEntity(ObstacleEquipment entity) {
         boolean rechecked = HeightRecheckRules.isRechecked(entity.getMeasuredHeight(), entity.getRecheckReviewer());
-        boolean bindable = HeightRecheckRules.canBind(rechecked, entity.getRecheckResult());
+        boolean heightPassed = HeightRecheckRules.canBind(rechecked, entity.getRecheckResult());
+        boolean inUse = entity.getStatus() != null && entity.getStatus() == 1;
+        // 只有在用且杆高复核通过的杆才可绑定；在修中、已删除一律禁绑
+        boolean bindable = inUse && heightPassed;
         return ObstacleEquipmentResponse.builder()
                 .id(entity.getId())
                 .equipmentCode(entity.getEquipmentCode())
@@ -72,6 +78,7 @@ public class ObstacleEquipmentResponse {
                 .adaptLevelDesc(entity.getAdaptLevel().getDescription())
                 .description(entity.getDescription())
                 .status(entity.getStatus())
+                .statusName(resolveStatusName(entity.getStatus()))
                 .measuredHeight(entity.getMeasuredHeight())
                 .recheckReviewer(entity.getRecheckReviewer())
                 .recheckResult(entity.getRecheckResult())
@@ -83,6 +90,18 @@ public class ObstacleEquipmentResponse {
                 .createTime(entity.getCreateTime())
                 .updateTime(entity.getUpdateTime())
                 .build();
+    }
+
+    private static String resolveStatusName(Integer status) {
+        if (status == null) {
+            return null;
+        }
+        return switch (status) {
+            case 1 -> "在用";
+            case 2 -> "在修中";
+            case 0 -> "已删除";
+            default -> "未知";
+        };
     }
 
     private static String resolveResultName(String result) {

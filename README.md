@@ -57,6 +57,21 @@ Docker Compose 端口均绑定到 `127.0.0.1`，镜像基础地址通过 `.env` 
 - `GET /api/station/summary` 训练位占用统计（`{ "total": 5, "occupied": 3, "free": 2 }`）
 - `POST /api/station/{id}/unbind-rider` 从训练位拿下骑手，该位改标空闲
 
+## 障碍杆送修
+
+障碍杆损坏后必须走「开单送修 → 修好归还」两步，不能只把器材从名单里软删除：
+
+- **开单送修**：故障说明、经办教练都必填；提交后系统在同一事务中先把杆从所有在用训练位拆下，再把器材状态改为「在修中」。只改器材名单、训练位仍挂杆的情况不算完成。
+- **在修禁绑**：在修中的杆不会出现在训练位绑定名单；创建、编辑、再绑训练位三个入口都由后端持器材行锁复查状态，提交在修杆会被拦回。
+- **修好归还**：修复结论必填；没有结论不能把器材恢复成「在用」。
+- **并发保护**：送修/归还与训练位绑定共用 `obstacle_equipment` 行级悲观写锁。两个人同时操作时，后提交的绑定单会在锁内看到「在修中」状态并失败，不能把还在修的杆挂回训练位。
+
+接口：
+
+- `POST /api/equipment-repair/equipment/{equipmentId}/send` 开单送修（`{ "faultDescription": "横杆开裂", "handlerCoach": "陈教练" }`，自动拆下训练位）
+- `POST /api/equipment-repair/{orderId}/return` 修好归还（`{ "repairConclusion": "已更换开裂横杆并复检" }`）
+- `GET /api/equipment-repair?status=IN_REPAIR|RETURNED` 维修单列表（不传状态查全部）
+
 ## 骑手改级
 
 教练在骑手档案「升级」时须填**改级原因**与**操作人**，少写一样前后端都会提示还没写全，不予提交。改级是幂等的：同一骑手同一新等级只生效一次——网络卡顿连点/重试时，改级全程锁住骑手档案行（`SELECT ... FOR UPDATE`），第二单排队读到新等级后直接返回当前状态，不会再记一条变更；`level_change_log` 另有 `(rider_id, new_level)` 唯一约束兜底（等级只升不降，同骑手同新等级本就只应出现一次）。
