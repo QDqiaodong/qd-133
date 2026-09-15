@@ -14,6 +14,12 @@ request.interceptors.response.use(
     return res.data
   },
   (error) => {
+    // 后端业务异常统一走 ApiResponse(code/message)，把里面的中文提示透出来，
+    // 不要只显示 axios 的 "Request failed with status code 400"
+    const backendMessage = error.response?.data?.message
+    if (backendMessage) {
+      return Promise.reject(new Error(backendMessage))
+    }
     return Promise.reject(error)
   }
 )
@@ -163,8 +169,10 @@ export const riderApi = {
   getById(id: number) {
     return request.get(`/rider/${id}`)
   },
-  listAll() {
-    return request.get('/rider')
+  listAll(includeInactive = false) {
+    return request.get('/rider', {
+      params: includeInactive ? { includeInactive: true } : {}
+    })
   },
   listByLevel(level: number) {
     return request.get(`/rider/level/${level}`)

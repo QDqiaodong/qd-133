@@ -48,17 +48,25 @@ public class TrainingStationResponse {
     private LocalDateTime updateTime;
 
     public static TrainingStationResponse fromEntity(TrainingStation entity) {
-        boolean occupied = entity.getRider() != null;
+        return fromEntity(entity, entity.getRider());
+    }
+
+    /**
+     * @param effectiveRider 实际占用该位的骑手投影；传 null 表示该位按空闲出参
+     *                       （用于挂着已停用骑手的历史数据兜底，不动库中实体）。
+     */
+    public static TrainingStationResponse fromEntity(TrainingStation entity, Rider effectiveRider) {
+        boolean occupied = effectiveRider != null;
         Boolean levelMatch = null;
         if (occupied && entity.getEquipment() != null) {
             levelMatch = entity.getEquipment().getAdaptLevel()
-                    .isCompatibleWith(entity.getRider().getCurrentLevel());
+                    .isCompatibleWith(effectiveRider.getCurrentLevel());
         }
         return TrainingStationResponse.builder()
                 .id(entity.getId())
                 .stationCode(entity.getStationCode())
                 .stationName(entity.getStationName())
-                .rider(occupied ? RiderResponse.fromEntity(entity.getRider()) : null)
+                .rider(occupied ? RiderResponse.fromEntity(effectiveRider) : null)
                 .equipment(entity.getEquipment() != null ? ObstacleEquipmentResponse.fromEntity(entity.getEquipment()) : null)
                 .status(entity.getStatus())
                 .occupied(occupied)

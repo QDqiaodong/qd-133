@@ -18,7 +18,7 @@ public interface TrainingStationRepository extends JpaRepository<TrainingStation
 
     List<TrainingStation> findByStatus(Integer status);
 
-    Optional<TrainingStation> findByRiderIdAndStatus(Long riderId, Integer status);
+    List<TrainingStation> findByRiderIdAndStatus(Long riderId, Integer status);
 
     boolean existsByStationCode(String stationCode);
 }

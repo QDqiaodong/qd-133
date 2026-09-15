@@ -5,9 +5,11 @@ import com.qd.mashu.dto.request.RiderRequest;
 import com.qd.mashu.dto.response.RiderResponse;
 import com.qd.mashu.entity.LevelChangeLog;
 import com.qd.mashu.entity.Rider;
+import com.qd.mashu.entity.TrainingStation;
 import com.qd.mashu.enums.TrainingLevel;
 import com.qd.mashu.repository.LevelChangeLogRepository;
 import com.qd.mashu.repository.RiderRepository;
+import com.qd.mashu.repository.TrainingStationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,9 @@ public class RiderService {
 
     @Autowired
     private LevelChangeLogRepository levelChangeLogRepository;
+
+    @Autowired
+    private TrainingStationRepository trainingStationRepository;
 
     @Autowired
     private TrainingStationService trainingStationService;
@@ -79,13 +84,34 @@ public class RiderService {
         return RiderResponse.fromEntity(rider);
     }
 
+    /**
+     * 停用骑手档案。
+     * 只要该骑手还挂在任一启用中的训练位上，整次停用失败并逐位写明占着哪些位；
+     * 必须先从训练位拿下（杆保留在原位），才能停用。
+     *
+     * 与「往空位上挂这个人」并发时，两边都走骑手行悲观写锁，锁内复查占用与档案状态：
+     * 谁先拿到锁谁成，后到的一单看到对方已提交的结果后自行失败——
+     * 要么停用成功且位上没有这个人，要么挂上成功且档案仍在用，不会出现人已停用还占着位。
+     */
     @Transactional
     public void delete(Long id) {
-        Rider rider = riderRepository.findById(id)
+        Rider rider = riderRepository.findWithLockById(id)
                 .orElseThrow(() -> new IllegalArgumentException("骑手不存在"));
+
+        List<TrainingStation> occupiedStations =
+                trainingStationRepository.findByRiderIdAndStatus(id, 1);
+        if (!occupiedStations.isEmpty()) {
+            String stationNames = occupiedStations.stream()
+                    .map(s -> s.getStationName() + "（" + s.getStationCode() + "）")
+                    .collect(Collectors.joining("、"));
+            throw new IllegalArgumentException(
+                    "骑手[" + rider.getRiderName() + "]还占着训练位：" + stationNames
+                            + "，请先把该骑手从这些训练位拿下（杆可以留在原位）再停用");
+        }
+
         rider.setStatus(0);
         riderRepository.save(rider);
-        logger.info("Deleted rider: {}", rider.getRiderCode());
+        logger.info("Deactivated rider: {}", rider.getRiderCode());
     }
 
     public RiderResponse getById(Long id) {
@@ -102,6 +128,16 @@ public class RiderService {
 
     public List<RiderResponse> listAll() {
         return riderRepository.findByStatus(1).stream()
+                .map(RiderResponse::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 列出全部骑手，含已停用：训练位绑定下拉要用，停用的人在下拉里看得到、选得到，
+     * 但提交时由训练位一侧拦回（停用档案不能再绑到任何训练位）。
+     */
+    public List<RiderResponse> listAllIncludeInactive() {
+        return riderRepository.findAll().stream()
                 .map(RiderResponse::fromEntity)
                 .collect(Collectors.toList());
     }

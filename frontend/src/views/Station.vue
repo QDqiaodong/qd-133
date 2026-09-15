@@ -43,11 +43,22 @@ const getLevelName = (level: number) => {
 }
 
 const getRiderOptions = computed(() => {
+  // 已停用的人在下拉里仍看得到、点得到，但提交时会被拦回（后端也会再拦一道）
   return riderList.value.map(r => ({
-    label: `${r.riderCode} - ${r.riderName} (${getLevelName(r.currentLevel)})`,
-    value: r.id
+    label: `${r.riderCode} - ${r.riderName} (${getLevelName(r.currentLevel)})${r.status === 0 ? '【已停用】' : ''}`,
+    value: r.id,
+    disabled: false
   }))
 })
+
+const inactiveRiderBlockReason = (riderId: number | undefined) => {
+  if (!riderId) return ''
+  const rider = riderList.value.find(r => r.id === riderId)
+  if (rider && rider.status === 0) {
+    return `骑手[${rider.riderName}]的档案已停用，不能再绑到任何训练位`
+  }
+  return ''
+}
 
 const equipmentOptionLabel = (e: ObstacleEquipment) => {
   let recheckTag = ''
@@ -105,7 +116,8 @@ const loadData = async () => {
     stationList.value = await stationApi.listAll() as unknown as TrainingStation[]
     summary.value = await stationApi.summary() as unknown as TrainingStationSummary
     equipmentList.value = await equipmentApi.listAll() as unknown as ObstacleEquipment[]
-    riderList.value = await riderApi.listAll() as unknown as Rider[]
+    // 训练位下拉要能看到已停用的人（选得到，但提交会被拦）
+    riderList.value = await riderApi.listAll(true) as unknown as Rider[]
   } catch (error: any) {
     ElMessage.error('加载数据失败')
   }
@@ -145,6 +157,11 @@ const openBindDialog = (item: TrainingStation) => {
 }
 
 const handleSubmit = async () => {
+  const inactiveReason = inactiveRiderBlockReason(form.value.riderId)
+  if (inactiveReason) {
+    ElMessageBox.alert(inactiveReason, '禁止绑定', { type: 'error' })
+    return
+  }
   if (form.value.equipmentId) {
     const blockReason = equipmentBindBlockReason(
       equipmentList.value.find(e => e.id === form.value.equipmentId)
@@ -177,6 +194,13 @@ const handleBind = async () => {
 
   const rider = riderList.value.find(r => r.id === bindForm.value.riderId)
   const equipment = equipmentList.value.find(e => e.id === bindForm.value.equipmentId)
+
+  // 已停用的骑手在下拉里选得到，但提交过不去（后端持锁复查，同样拦回）
+  const inactiveReason = inactiveRiderBlockReason(bindForm.value.riderId)
+  if (inactiveReason) {
+    ElMessageBox.alert(inactiveReason, '禁止绑定', { type: 'error' })
+    return
+  }
 
   // 杆高复核拦截：未复核 / 高度不符的杆不能绑上训练位（以后端校验为准）
   const blockReason = equipmentBindBlockReason(equipment)

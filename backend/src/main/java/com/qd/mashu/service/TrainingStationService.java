@@ -48,8 +48,8 @@ public class TrainingStationService {
         ObstacleEquipment equipment = null;
 
         if (request.getRiderId() != null) {
-            rider = riderRepository.findById(request.getRiderId())
-                    .orElseThrow(() -> new IllegalArgumentException("骑手不存在"));
+            // 锁住骑手档案行并在锁内复查状态：停用的骑手不能再绑到任何训练位
+            rider = loadActiveRiderWithLock(request.getRiderId());
         }
 
         if (request.getEquipmentId() != null) {
@@ -91,8 +91,8 @@ public class TrainingStationService {
         ObstacleEquipment equipment = null;
 
         if (request.getRiderId() != null) {
-            rider = riderRepository.findById(request.getRiderId())
-                    .orElseThrow(() -> new IllegalArgumentException("骑手不存在"));
+            // 锁住骑手档案行并在锁内复查状态：停用的骑手不能再绑到任何训练位
+            rider = loadActiveRiderWithLock(request.getRiderId());
         }
 
         if (request.getEquipmentId() != null) {
@@ -129,22 +129,23 @@ public class TrainingStationService {
     public TrainingStationResponse getById(Long id) {
         TrainingStation station = stationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("训练位不存在"));
-        return TrainingStationResponse.fromEntity(station);
+        return toResponse(station);
     }
 
     public List<TrainingStationResponse> listAll() {
         return stationRepository.findByStatus(1).stream()
-                .map(TrainingStationResponse::fromEntity)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     /**
-     * 训练位占用统计：挂上骑手的计占用，没挂人的计空闲，占用 + 空闲 = 训练位总数。
+     * 训练位占用统计：挂上「在用」骑手的计占用，没挂人（含挂着已停用骑手的历史脏数据）
+     * 的计空闲，占用 + 空闲 = 训练位总数。停用的人不再出现在占用名单里。
      */
     public TrainingStationSummary getSummary() {
         List<TrainingStation> stations = stationRepository.findByStatus(1);
         long total = stations.size();
-        long occupied = stations.stream().filter(s -> s.getRider() != null).count();
+        long occupied = stations.stream().filter(this::isOccupiedByActiveRider).count();
         return TrainingStationSummary.builder()
                 .total(total)
                 .occupied(occupied)
@@ -169,20 +170,20 @@ public class TrainingStationService {
         station = stationRepository.save(station);
         logger.info("Unbound rider[{}] from station[{}], station is now FREE", riderCode, station.getStationCode());
 
-        return TrainingStationResponse.fromEntity(station);
+        return toResponse(station);
     }
 
     public List<TrainingStationResponse> listByRider(Long riderId) {
         return stationRepository.findByRiderId(riderId).stream()
                 .filter(s -> s.getStatus() == 1)
-                .map(TrainingStationResponse::fromEntity)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     public List<TrainingStationResponse> listByEquipment(Long equipmentId) {
         return stationRepository.findByEquipmentId(equipmentId).stream()
                 .filter(s -> s.getStatus() == 1)
-                .map(TrainingStationResponse::fromEntity)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
@@ -191,8 +192,9 @@ public class TrainingStationService {
         TrainingStation station = stationRepository.findById(stationId)
                 .orElseThrow(() -> new IllegalArgumentException("训练位不存在"));
 
-        Rider rider = riderRepository.findById(riderId)
-                .orElseThrow(() -> new IllegalArgumentException("骑手不存在"));
+        // 锁住骑手档案行并在锁内复查状态：停用的骑手不能再绑到任何训练位。
+        // 与另一头的「停用档案」并发时，谁先拿到骑手行锁谁成，后到的一单必失败。
+        Rider rider = loadActiveRiderWithLock(riderId);
 
         ObstacleEquipment equipment = equipmentRepository.findById(equipmentId)
                 .orElseThrow(() -> new IllegalArgumentException("设备不存在"));
@@ -209,7 +211,7 @@ public class TrainingStationService {
         logger.info("Bound rider[{}] and equipment[{}] to station[{}]",
                 rider.getRiderCode(), equipment.getEquipmentCode(), station.getStationCode());
 
-        return TrainingStationResponse.fromEntity(station);
+        return toResponse(station);
     }
 
     /**
@@ -218,8 +220,7 @@ public class TrainingStationService {
      */
     @Transactional
     public void revalidateStationsAfterLevelChange(Rider rider) {
-        List<TrainingStation> stations = stationRepository.findByRiderIdAndStatus(rider.getId(), 1).stream()
-                .collect(Collectors.toList());
+        List<TrainingStation> stations = stationRepository.findByRiderIdAndStatus(rider.getId(), 1);
 
         for (TrainingStation station : stations) {
             if (station.getEquipment() != null) {
@@ -232,5 +233,45 @@ public class TrainingStationService {
                 }
             }
         }
+    }
+
+    /**
+     * 取骑手档案行的悲观写锁并在锁内复查状态：
+     * 停用（status=0）的骑手不能再绑到任何训练位，下拉里选得到，提交在此拦回。
+     * 停用操作持同一把行锁，两边并发时后拿锁的一单看到对方已提交的结果，必失败。
+     */
+    private Rider loadActiveRiderWithLock(Long riderId) {
+        Rider rider = riderRepository.findWithLockById(riderId)
+                .orElseThrow(() -> new IllegalArgumentException("骑手不存在"));
+        if (rider.getStatus() == null || rider.getStatus() != 1) {
+            throw new IllegalArgumentException(
+                    "骑手[" + rider.getRiderName() + "]的档案已停用，不能再绑到训练位");
+        }
+        return rider;
+    }
+
+    private boolean isOccupiedByActiveRider(TrainingStation station) {
+        return station.getRider() != null
+                && station.getRider().getStatus() != null
+                && station.getRider().getStatus() == 1;
+    }
+
+    /**
+     * 训练位出参：挂着已停用骑手的位按空闲投影（杆照旧保留在位上）。
+     * 正常流程下不会产生这种组合（停用前必须先拿下人），这里只兜底历史/异常数据，
+     * 保证关掉名单再打开时停用的人不出现在占用名单和占用统计里。
+     */
+    private TrainingStationResponse toResponse(TrainingStation station) {
+        if (isOccupiedByActiveRider(station)) {
+            return TrainingStationResponse.fromEntity(station);
+        }
+
+        if (station.getRider() != null) {
+            // 挂着已停用骑手的位按空闲投影（杆照旧保留），只影响出参、不动库中实体
+            logger.warn("Station[{}] still references inactive rider[{}], projecting as FREE",
+                    station.getStationCode(), station.getRider().getRiderCode());
+            return TrainingStationResponse.fromEntity(station, null);
+        }
+        return TrainingStationResponse.fromEntity(station);
     }
 }

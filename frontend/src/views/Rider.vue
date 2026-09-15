@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElTable, ElTableColumn, ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElInputNumber, ElDatePicker, ElMessage, ElTag } from 'element-plus'
+import { ElTable, ElTableColumn, ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElInputNumber, ElDatePicker, ElMessage, ElTag, ElMessageBox } from 'element-plus'
 import { riderApi, type Rider } from '@/api'
 
 interface RiderForm {
@@ -145,13 +145,23 @@ const handleLevelUpdate = async () => {
   }
 }
 
-const handleDelete = async (id: number) => {
+const handleDelete = async (item: Rider) => {
   try {
-    await riderApi.delete(id)
-    ElMessage.success('删除成功')
+    await ElMessageBox.confirm(
+      `确定停用骑手[${item.riderName}]吗？停用后不能再绑到任何训练位；若该骑手还占着训练位，需要先从训练位拿下（杆可以留在原位）。`,
+      '停用骑手',
+      { type: 'warning', confirmButtonText: '确定停用', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+  try {
+    await riderApi.delete(item.id)
+    ElMessage.success('骑手已停用')
     loadRiders()
   } catch (error: any) {
-    ElMessage.error(error.message || '删除失败')
+    // 还占着训练位时后端整次停用失败，并写明占着哪一个位
+    ElMessageBox.alert(error.message || '停用失败', '停用失败', { type: 'error' })
   }
 }
 </script>
@@ -182,7 +192,7 @@ const handleDelete = async (id: number) => {
         <template #default="{ row }">
           <ElButton type="primary" size="small" @click="openEditDialog(row as unknown as Rider)">编辑</ElButton>
           <ElButton type="success" size="small" @click="openLevelDialog(row as unknown as Rider)">升级</ElButton>
-          <ElButton type="danger" size="small" @click="handleDelete(row.id)">删除</ElButton>
+          <ElButton type="danger" size="small" @click="handleDelete(row as unknown as Rider)">停用</ElButton>
         </template>
       </ElTableColumn>
     </ElTable>

@@ -54,8 +54,11 @@ public class RiderController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<RiderResponse>>> listAll() {
-        List<RiderResponse> response = riderService.listAll();
+    public ResponseEntity<ApiResponse<List<RiderResponse>>> listAll(
+            @RequestParam(value = "includeInactive", required = false, defaultValue = "false") Boolean includeInactive) {
+        List<RiderResponse> response = Boolean.TRUE.equals(includeInactive)
+                ? riderService.listAllIncludeInactive()
+                : riderService.listAll();
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

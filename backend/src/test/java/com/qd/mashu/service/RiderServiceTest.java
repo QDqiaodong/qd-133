@@ -5,9 +5,11 @@ import com.qd.mashu.dto.request.RiderRequest;
 import com.qd.mashu.dto.response.RiderResponse;
 import com.qd.mashu.entity.LevelChangeLog;
 import com.qd.mashu.entity.Rider;
+import com.qd.mashu.entity.TrainingStation;
 import com.qd.mashu.enums.TrainingLevel;
 import com.qd.mashu.repository.LevelChangeLogRepository;
 import com.qd.mashu.repository.RiderRepository;
+import com.qd.mashu.repository.TrainingStationRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -33,6 +36,9 @@ class RiderServiceTest {
 
     @Mock
     private LevelChangeLogRepository levelChangeLogRepository;
+
+    @Mock
+    private TrainingStationRepository trainingStationRepository;
 
     @Mock
     private TrainingStationService trainingStationService;
@@ -152,5 +158,63 @@ class RiderServiceTest {
         // 保存后重开页面能读到的就是刚写下的体测日，而不是只停在编辑窗里
         verify(riderRepository).save(argThat(r ->
                 LocalDate.of(2026, 9, 10).equals(r.getLastFitnessTestDate())));
+    }
+
+    private TrainingStation stationAt(String code, String name, Rider rider) {
+        return TrainingStation.builder()
+                .id(10L)
+                .stationCode(code)
+                .stationName(name)
+                .rider(rider)
+                .status(1)
+                .build();
+    }
+
+    @Test
+    void deactivate_rider_still_on_a_station_fails_and_names_the_station() {
+        Rider rider = riderAt(TrainingLevel.LEVEL_1);
+        when(riderRepository.findWithLockById(1L)).thenReturn(Optional.of(rider));
+        when(trainingStationRepository.findByRiderIdAndStatus(1L, 1))
+                .thenReturn(List.of(stationAt("ST001", "训练位1号", rider)));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> riderService.delete(1L));
+
+        // 整次停用不能成功，并写明还占着哪一个位
+        assertTrue(ex.getMessage().contains("训练位1号"));
+        assertTrue(ex.getMessage().contains("ST001"));
+        verify(riderRepository, never()).save(any(Rider.class));
+        assertEquals(1, rider.getStatus());
+    }
+
+    @Test
+    void deactivate_rider_on_multiple_stations_lists_every_station() {
+        Rider rider = riderAt(TrainingLevel.LEVEL_1);
+        when(riderRepository.findWithLockById(1L)).thenReturn(Optional.of(rider));
+        when(trainingStationRepository.findByRiderIdAndStatus(1L, 1))
+                .thenReturn(List.of(
+                        stationAt("ST001", "训练位1号", rider),
+                        stationAt("ST002", "训练位2号", rider)));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> riderService.delete(1L));
+
+        assertTrue(ex.getMessage().contains("训练位1号"));
+        assertTrue(ex.getMessage().contains("训练位2号"));
+        verify(riderRepository, never()).save(any(Rider.class));
+    }
+
+    @Test
+    void deactivate_rider_off_all_stations_succeeds() {
+        Rider rider = riderAt(TrainingLevel.LEVEL_1);
+        when(riderRepository.findWithLockById(1L)).thenReturn(Optional.of(rider));
+        when(trainingStationRepository.findByRiderIdAndStatus(1L, 1))
+                .thenReturn(List.of());
+        when(riderRepository.save(any(Rider.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        riderService.delete(1L);
+
+        // 先从训练位拿下人、杆留在原位；位上空了之后停用才落库
+        verify(riderRepository).save(argThat(r -> r.getStatus() == 0));
     }
 }
