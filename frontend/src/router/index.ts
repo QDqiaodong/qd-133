@@ -28,6 +28,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/Recheck.vue')
   },
   {
+    path: '/review',
+    name: 'Review',
+    component: () => import('../views/Review.vue')
+  },
+  {
     path: '/level-summary',
     name: 'LevelSummary',
     component: () => import('../views/LevelSummary.vue')

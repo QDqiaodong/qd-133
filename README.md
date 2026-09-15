@@ -68,3 +68,15 @@ Docker Compose 端口均绑定到 `127.0.0.1`，镜像基础地址通过 `.env` 
 - `POST /api/rider/level/update` 改级（`{ "riderId": 1, "newLevel": 2, "changeReason": "考核通过", "operator": "陈教练" }`，幂等）
 - `GET /api/rider/{id}/logs` 骑手等级变更记录
 
+## 课后点评
+
+教练在「课后点评」页**选好骑手**、写下**本节重点**并打**一到五星**后提交，三项缺一不可（前后端都会校验提示）。点评明细落库（`session_review` 表，JPA `ddl-auto: update` 自动建表）持久化，刷新页面后明细与汇总都还在。
+
+星级汇总（总条数、平均星级、一到五星各星级条数）由后端 `GET /api/review/summary` 对**同一张表**实时 `GROUP BY` 统计，总条数取各星级条数之和，与点评明细条数同源，两处必然保持一致；页面上同时展示「明细 N 条 / 汇总 N 条」并标记是否一致。没评过的星级补 0，汇总固定返回 5 桶。
+
+接口：
+
+- `POST /api/review` 提交点评（`{ "riderId": 1, "sessionFocus": "障碍杆起跳节奏", "starRating": 5 }`）
+- `GET /api/review` 点评明细列表（最新在前）
+- `GET /api/review/summary` 按星级统计汇总（`{ "total": 4, "averageStars": 3.5, "starCounts": [{ "stars": 1, "count": 0 }, ...] }`）
+

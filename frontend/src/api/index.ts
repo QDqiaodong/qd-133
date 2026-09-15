@@ -100,6 +100,25 @@ export interface LevelCacheTemplate {
   equipmentCodes: string[]
 }
 
+export interface SessionReview {
+  id: number
+  rider: Rider
+  sessionFocus: string
+  starRating: number
+  createTime: string
+}
+
+export interface SessionReviewStarCount {
+  stars: number
+  count: number
+}
+
+export interface SessionReviewSummary {
+  total: number
+  averageStars: number
+  starCounts: SessionReviewStarCount[]
+}
+
 export const equipmentApi = {
   create(data: Omit<ObstacleEquipment, 'id' | 'adaptLevelName' | 'adaptLevelDesc' | 'status'>) {
     return request.post('/equipment', data)
@@ -180,6 +199,18 @@ export const stationApi = {
     return request.post(`/station/${stationId}/bind`, null, {
       params: { riderId, equipmentId }
     })
+  }
+}
+
+export const reviewApi = {
+  create(data: { riderId: number; sessionFocus: string; starRating: number }) {
+    return request.post('/review', data)
+  },
+  listAll() {
+    return request.get('/review')
+  },
+  summary() {
+    return request.get('/review/summary')
   }
 }
 
