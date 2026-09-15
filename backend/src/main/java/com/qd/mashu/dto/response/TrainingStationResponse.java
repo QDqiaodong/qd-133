@@ -1,5 +1,6 @@
 package com.qd.mashu.dto.response;
 
+import com.qd.mashu.entity.Rider;
 import com.qd.mashu.entity.TrainingStation;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
