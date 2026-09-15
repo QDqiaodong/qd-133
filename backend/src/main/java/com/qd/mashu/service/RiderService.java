@@ -46,6 +46,7 @@ public class RiderService {
                 .currentLevel(level)
                 .phone(request.getPhone())
                 .email(request.getEmail())
+                .lastFitnessTestDate(request.getLastFitnessTestDate())
                 .status(1)
                 .build();
 
@@ -70,6 +71,7 @@ public class RiderService {
         rider.setAge(request.getAge());
         rider.setPhone(request.getPhone());
         rider.setEmail(request.getEmail());
+        rider.setLastFitnessTestDate(request.getLastFitnessTestDate());
 
         rider = riderRepository.save(rider);
         logger.info("Updated rider: {}", rider.getRiderCode());

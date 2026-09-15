@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -22,4 +24,6 @@ public class RiderRequest {
     private String phone;
 
     private String email;
+
+    private LocalDate lastFitnessTestDate;
 }

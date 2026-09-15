@@ -48,6 +48,7 @@ export interface Rider {
   currentLevelDesc: string
   phone: string
   email: string
+  lastFitnessTestDate?: string | null
   status: number
 }
 

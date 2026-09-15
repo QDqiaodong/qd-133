@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Component
@@ -125,6 +126,7 @@ public class DataInitializer implements CommandLineRunner {
                 .currentLevel(TrainingLevel.LEVEL_1)
                 .phone("13800138001")
                 .email("zhangsan@mashu.com")
+                .lastFitnessTestDate(LocalDate.now().minusDays(20))
                 .status(1)
                 .build());
 
@@ -155,6 +157,7 @@ public class DataInitializer implements CommandLineRunner {
                 .currentLevel(TrainingLevel.LEVEL_3)
                 .phone("13800138004")
                 .email("zhaoliu@mashu.com")
+                .lastFitnessTestDate(LocalDate.now().minusDays(5))
                 .status(1)
                 .build());
 

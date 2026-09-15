@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -32,6 +33,8 @@ public class RiderResponse {
 
     private String email;
 
+    private LocalDate lastFitnessTestDate;
+
     private Integer status;
 
     private LocalDateTime createTime;
@@ -49,6 +52,7 @@ public class RiderResponse {
                 .currentLevelDesc(entity.getCurrentLevel().getDescription())
                 .phone(entity.getPhone())
                 .email(entity.getEmail())
+                .lastFitnessTestDate(entity.getLastFitnessTestDate())
                 .status(entity.getStatus())
                 .createTime(entity.getCreateTime())
                 .updateTime(entity.getUpdateTime())

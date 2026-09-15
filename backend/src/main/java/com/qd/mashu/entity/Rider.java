@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -39,6 +40,9 @@ public class Rider {
 
     @Column(name = "email", length = 100)
     private String email;
+
+    @Column(name = "last_fitness_test_date")
+    private LocalDate lastFitnessTestDate;
 
     @Column(name = "status", nullable = false)
     @Builder.Default

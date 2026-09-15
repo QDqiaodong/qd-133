@@ -1,6 +1,7 @@
 package com.qd.mashu.service;
 
 import com.qd.mashu.dto.request.RiderLevelUpdateRequest;
+import com.qd.mashu.dto.request.RiderRequest;
 import com.qd.mashu.dto.response.RiderResponse;
 import com.qd.mashu.entity.LevelChangeLog;
 import com.qd.mashu.entity.Rider;
@@ -13,10 +14,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 /**
@@ -108,5 +111,46 @@ class RiderServiceTest {
 
         assertTrue(ex.getMessage().contains("不能降级"));
         verify(levelChangeLogRepository, never()).save(any(LevelChangeLog.class));
+    }
+
+    @Test
+    void create_persists_last_fitness_test_date() {
+        RiderRequest req = RiderRequest.builder()
+                .riderCode("RD009")
+                .riderName("新骑手")
+                .age(20)
+                .currentLevel(1)
+                .lastFitnessTestDate(LocalDate.of(2026, 9, 1))
+                .build();
+        when(riderRepository.existsByRiderCode("RD009")).thenReturn(false);
+        when(riderRepository.save(any(Rider.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        RiderResponse response = riderService.create(req);
+
+        assertEquals(LocalDate.of(2026, 9, 1), response.getLastFitnessTestDate());
+        verify(riderRepository).save(argThat(r ->
+                LocalDate.of(2026, 9, 1).equals(r.getLastFitnessTestDate())));
+    }
+
+    @Test
+    void update_overwrites_last_fitness_test_date_and_returns_it() {
+        Rider rider = riderAt(TrainingLevel.LEVEL_1);
+        when(riderRepository.findById(1L)).thenReturn(Optional.of(rider));
+        when(riderRepository.save(any(Rider.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        RiderRequest req = RiderRequest.builder()
+                .riderCode("RD001")
+                .riderName("张三")
+                .age(25)
+                .currentLevel(1)
+                .lastFitnessTestDate(LocalDate.of(2026, 9, 10))
+                .build();
+
+        RiderResponse response = riderService.update(1L, req);
+
+        assertEquals(LocalDate.of(2026, 9, 10), response.getLastFitnessTestDate());
+        // 保存后重开页面能读到的就是刚写下的体测日，而不是只停在编辑窗里
+        verify(riderRepository).save(argThat(r ->
+                LocalDate.of(2026, 9, 10).equals(r.getLastFitnessTestDate())));
     }
 }

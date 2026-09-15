@@ -80,3 +80,12 @@ Docker Compose 端口均绑定到 `127.0.0.1`，镜像基础地址通过 `.env` 
 - `GET /api/review` 点评明细列表（最新在前）
 - `GET /api/review/summary` 按星级统计汇总（`{ "total": 4, "averageStars": 3.5, "starCounts": [{ "stars": 1, "count": 0 }, ...] }`）
 
+## 骑手体测日
+
+教练在骑手档案的「编辑」窗里选好骑手后，用日期选择器写下**最近一次体测日**并保存。该日期随骑手档案一起落库（`rider.last_fitness_test_date`，JPA `ddl-auto: update` 自动加列），保存成功后列表立即刷新，「最近体测日」列当场显示该日（没填过显示「未记录」）；关掉页面再打开，`GET /api/rider` 仍从库里读出该日期，不会只停在编辑窗里。字段可空，留空保存即清除已有日期。
+
+接口（复用骑手档案接口，字段在骑手对象上）：
+
+- `POST /api/rider` / `PUT /api/rider/{id}` 新增/编辑骑手（`{ ..., "lastFitnessTestDate": "2026-09-10" }`，格式 `YYYY-MM-DD`，可空）
+- `GET /api/rider` 骑手列表，每个骑手带 `lastFitnessTestDate`
+

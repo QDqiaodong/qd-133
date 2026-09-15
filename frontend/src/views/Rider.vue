@@ -1,19 +1,32 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElTable, ElTableColumn, ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElInputNumber, ElMessage, ElTag } from 'element-plus'
+import { ElTable, ElTableColumn, ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElInputNumber, ElDatePicker, ElMessage, ElTag } from 'element-plus'
 import { riderApi, type Rider } from '@/api'
 
-const riderList = ref<Rider[]>([])
-const dialogVisible = ref(false)
-const levelDialogVisible = ref(false)
-const form = ref({
+interface RiderForm {
+  riderCode: string
+  riderName: string
+  age: number
+  currentLevel: number
+  phone: string
+  email: string
+  lastFitnessTestDate: string | null
+}
+
+const emptyForm = (): RiderForm => ({
   riderCode: '',
   riderName: '',
   age: 0,
   currentLevel: 1,
   phone: '',
-  email: ''
+  email: '',
+  lastFitnessTestDate: null
 })
+
+const riderList = ref<Rider[]>([])
+const dialogVisible = ref(false)
+const levelDialogVisible = ref(false)
+const form = ref<RiderForm>(emptyForm())
 const levelForm = ref({
   newLevel: 1,
   changeReason: '',
@@ -59,14 +72,7 @@ const loadRiders = async () => {
 const openAddDialog = () => {
   editMode.value = false
   editingId.value = 0
-  form.value = {
-    riderCode: '',
-    riderName: '',
-    age: 0,
-    currentLevel: 1,
-    phone: '',
-    email: ''
-  }
+  form.value = emptyForm()
   dialogVisible.value = true
 }
 
@@ -79,7 +85,8 @@ const openEditDialog = (item: Rider) => {
     age: item.age || 0,
     currentLevel: item.currentLevel,
     phone: item.phone || '',
-    email: item.email || ''
+    email: item.email || '',
+    lastFitnessTestDate: item.lastFitnessTestDate || null
   }
   dialogVisible.value = true
 }
@@ -164,6 +171,11 @@ const handleDelete = async (id: number) => {
         </template>
       </ElTableColumn>
       <ElTableColumn prop="currentLevelDesc" label="等级描述" show-overflow-tooltip />
+      <ElTableColumn label="最近体测日">
+        <template #default="{ row }">
+          {{ (row as Rider).lastFitnessTestDate || '未记录' }}
+        </template>
+      </ElTableColumn>
       <ElTableColumn prop="phone" label="联系电话" />
       <ElTableColumn prop="email" label="邮箱" />
       <ElTableColumn label="操作">
@@ -196,6 +208,15 @@ const handleDelete = async (id: number) => {
         </ElFormItem>
         <ElFormItem label="邮箱" prop="email">
           <ElInput v-model="form.email" placeholder="请输入邮箱" />
+        </ElFormItem>
+        <ElFormItem label="最近体测日" prop="lastFitnessTestDate">
+          <ElDatePicker
+            v-model="form.lastFitnessTestDate"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="请选择最近一次体测日期"
+            style="width: 220px"
+          />
         </ElFormItem>
       </ElForm>
       <template #footer>
